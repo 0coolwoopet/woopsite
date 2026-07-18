@@ -287,6 +287,17 @@
 
     // ---- Burst-load detection (shared counter across all visitors) ----
     // Uses countapi.mileshilliard.com: free, no signup. Approximate, not exact-atomic.
+    // hit/set calls fire through an invisible iframe (no response needed);
+    // get calls use fetch since we need to read the value back.
+    function pingViaIframe(url) {
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => iframe.remove(), 3000);
+    }
+
     (async () => {
       const COUNT_KEY = "woopsitekey123";
       const TIME_KEY = "woopsitekey123_window";
@@ -298,20 +309,28 @@
 
         if (!windowStart || now - windowStart > 1000) {
           // Start a new 1-second window
-          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`, { cache: "no-store" });
-          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=1&_=${now}`, { cache: "no-store" });
+          pingViaIframe(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`);
+          pingViaIframe(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=1&_=${now}`);
         } else {
-          const hitRes = await fetch(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}?_=${now}`, { cache: "no-store" });
-          const hitData = await hitRes.json();
-          if (hitData && Number(hitData.value) >= 10) {
-            // Reset immediately so we don't spam repeated pings for the same burst
-            await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=0&_=${now}`, { cache: "no-store" });
-            fetch(atob(_wh), {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 1 second" })
-            }).catch((err) => console.error("Burst ping failed:", err));
-          }
+          pingViaIframe(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}?_=${now}`);
+          // Give the hit a moment to land, then read the updated value
+          setTimeout(async () => {
+            try {
+              const checkRes = await fetch(`https://countapi.mileshilliard.com/api/v1/get/${COUNT_KEY}?_=${Date.now()}`, { cache: "no-store" });
+              const checkData = await checkRes.json();
+              if (checkData && Number(checkData.value) >= 10) {
+                // Reset immediately so we don't spam repeated pings for the same burst
+                pingViaIframe(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=0&_=${Date.now()}`);
+                fetch(atob(_wh), {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 1 second" })
+                }).catch((err) => console.error("Burst ping failed:", err));
+              }
+            } catch (err) {
+              console.error("Burst check failed:", err);
+            }
+          }, 400);
         }
       } catch (err) {
         console.error("Burst detection failed:", err);
