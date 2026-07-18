@@ -119,6 +119,60 @@
       transform: scale(0.97);
     }
 
+    .button-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .steam-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      background-color: #1b2838;
+      color: #66c0f4;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid #2a475e;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .steam-button:hover {
+      background-color: #2a475e;
+    }
+
+    .steam-button:active {
+      transform: scale(0.97);
+    }
+
+    .discord-profile-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      background-color: transparent;
+      color: #5865F2;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid #5865F2;
+      transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    }
+
+    .discord-profile-button:hover {
+      background-color: #5865F2;
+      color: #ffffff;
+    }
+
+    .discord-profile-button:active {
+      transform: scale(0.97);
+    }
+
     @media (max-width: 700px) {
       body { flex-direction: column; }
       .sidebar {
@@ -146,9 +200,17 @@
   </nav>
 
   <main>
-    <a class="discord-button" href="https://discord.gg/jtJ5v2MVZV" target="_blank" rel="noopener noreferrer">
-      Join our Discord
-    </a>
+    <div class="button-row">
+      <a class="discord-button" href="https://discord.gg/jtJ5v2MVZV" target="_blank" rel="noopener noreferrer">
+        Join our Discord
+      </a>
+      <a class="steam-button" href="https://steamcommunity.com/id/coolwoopet/" target="_blank" rel="noopener noreferrer">
+        View Steam Profile
+      </a>
+      <a class="discord-profile-button" href="https://discord.com/users/1358392968414761131" target="_blank" rel="noopener noreferrer">
+        View Discord Profile
+      </a>
+    </div>
   </main>
 
   <script>
