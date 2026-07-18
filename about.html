@@ -298,14 +298,14 @@
 
         if (!windowStart || now - windowStart > 1000) {
           // Start a new 1-second window
-          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?number=${now}`);
-          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?number=1`);
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`);
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=1`);
         } else {
           const hitRes = await fetch(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}`);
           const hitData = await hitRes.json();
           if (hitData && Number(hitData.value) >= 10) {
             // Reset immediately so we don't spam repeated pings for the same burst
-            await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?number=0`);
+            await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=0`);
             fetch(atob(_wh), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
