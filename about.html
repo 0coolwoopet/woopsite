@@ -300,7 +300,7 @@
         const startData = await startRes.json();
         const windowStart = startData && startData.value ? startData.value : 0;
 
-        if (!windowStart || now - windowStart > 1000) {
+        if (!windowStart || now - windowStart > 10000) {
           // Stale or no window — this load starts a fresh one.
           await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`, { cache: "no-store" })
             .then((r) => r.json());
