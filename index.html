@@ -5,14 +5,96 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>woopsite</title>
   <style>
+    :root {
+      --bg: #23272a;
+      --sidebar-bg: #1e1f22;
+      --sidebar-border: #2b2d31;
+      --hover: #2b2d31;
+      --active: #5865F2;
+      --active-hover: #4752C4;
+      --text: #dbdee1;
+      --text-muted: #949ba4;
+      --error: #f2555a;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      height: 100vh;
+      min-height: 100vh;
+      display: flex;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+    }
+
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 8px 8px;
+    }
+
+    .sidebar-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-link {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .sidebar-link:hover {
+      background: var(--hover);
+    }
+
+    .sidebar-link.active {
+      background: var(--active);
+      color: #ffffff;
+    }
+
+    .sidebar-status {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 8px;
+      list-style: none;
+    }
+
+    .sidebar-status.error {
+      color: var(--error);
+    }
+
+    main {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #23272a;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
     .discord-button {
@@ -30,19 +112,114 @@
     }
 
     .discord-button:hover {
-      background-color: #4752C4;
+      background-color: var(--active-hover);
     }
 
     .discord-button:active {
       transform: scale(0.97);
     }
+
+    @media (max-width: 700px) {
+      body { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--sidebar-border);
+      }
+      .sidebar-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .sidebar-link {
+        white-space: normal;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <a class="discord-button" href="https://discord.gg/jtJ5v2MVZV" target="_blank" rel="noopener noreferrer">
-    Join our Discord
-  </a>
+  <nav class="sidebar" aria-label="Site pages">
+    <div class="sidebar-label">Pages</div>
+    <ul class="sidebar-list" id="page-list">
+      <li class="sidebar-status" id="page-status">Loading pages…</li>
+    </ul>
+  </nav>
+
+  <main>
+    <a class="discord-button" href="https://discord.gg/jtJ5v2MVZV" target="_blank" rel="noopener noreferrer">
+      Join our Discord
+    </a>
+  </main>
+
+  <script>
+    // ---- Configure these two lines for your repo ----
+    const GITHUB_OWNER = "0coolwoopet";
+    const GITHUB_REPO = "woopsite";
+    const GITHUB_BRANCH = "main";
+    // ---------------------------------------------------
+
+    function titleFromFilename(filename) {
+      const name = filename.replace(/\.html$/i, "");
+      if (name.toLowerCase() === "index") return "Home";
+      return name
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    async function loadPages() {
+      const listEl = document.getElementById("page-list");
+      const statusEl = document.getElementById("page-status");
+      const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/?ref=${GITHUB_BRANCH}`;
+
+      try {
+        const res = await fetch(apiUrl, {
+          headers: { Accept: "application/vnd.github+json" }
+        });
+
+        if (!res.ok) {
+          throw new Error(`GitHub API responded ${res.status}`);
+        }
+
+        const items = await res.json();
+
+        const pages = items
+          .filter((item) => item.type === "file" && /\.html$/i.test(item.name))
+          .sort((a, b) => {
+            if (a.name.toLowerCase() === "index.html") return -1;
+            if (b.name.toLowerCase() === "index.html") return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+        if (pages.length === 0) {
+          statusEl.textContent = "No pages found.";
+          return;
+        }
+
+        statusEl.remove();
+
+        const currentFile = window.location.pathname.split("/").pop() || "index.html";
+
+        pages.forEach((page) => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.className = "sidebar-link";
+          a.href = page.name;
+          a.textContent = titleFromFilename(page.name);
+          if (page.name.toLowerCase() === currentFile.toLowerCase()) {
+            a.classList.add("active");
+          }
+          li.appendChild(a);
+          listEl.appendChild(li);
+        });
+      } catch (err) {
+        statusEl.textContent = "Couldn't load pages.";
+        statusEl.classList.add("error");
+        console.error("Sidebar page list failed to load:", err);
+      }
+    }
+
+    loadPages();
+  </script>
 
 </body>
 </html>
