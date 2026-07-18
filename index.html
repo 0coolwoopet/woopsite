@@ -313,27 +313,26 @@
     }).catch((err) => console.error("Webhook ping failed:", err));
 
     // ---- Burst-load detection (shared counter across all visitors) ----
-    // Uses countapi.xyz: free, no signup. Approximate, not exact-atomic.
+    // Uses countapi.mileshilliard.com: free, no signup. Approximate, not exact-atomic.
     (async () => {
-      const NAMESPACE = "woopsite-0coolwoopet";
-      const COUNT_KEY = "burst-count";
-      const TIME_KEY = "burst-window-start";
+      const COUNT_KEY = "woopsitekey123";
+      const TIME_KEY = "woopsitekey123_window";
       try {
         const now = Date.now();
-        const startRes = await fetch(`https://api.countapi.xyz/get/${NAMESPACE}/${TIME_KEY}`);
+        const startRes = await fetch(`https://countapi.mileshilliard.com/api/v1/get/${TIME_KEY}`);
         const startData = await startRes.json();
         const windowStart = startData && startData.value ? startData.value : 0;
 
         if (!windowStart || now - windowStart > 1000) {
           // Start a new 1-second window
-          await fetch(`https://api.countapi.xyz/set/${NAMESPACE}/${TIME_KEY}?value=${now}`);
-          await fetch(`https://api.countapi.xyz/set/${NAMESPACE}/${COUNT_KEY}?value=1`);
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?number=${now}`);
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?number=1`);
         } else {
-          const hitRes = await fetch(`https://api.countapi.xyz/hit/${NAMESPACE}/${COUNT_KEY}`);
+          const hitRes = await fetch(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}`);
           const hitData = await hitRes.json();
-          if (hitData && hitData.value >= 10) {
+          if (hitData && Number(hitData.value) >= 10) {
             // Reset immediately so we don't spam repeated pings for the same burst
-            await fetch(`https://api.countapi.xyz/set/${NAMESPACE}/${COUNT_KEY}?value=0`);
+            await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?number=0`);
             fetch(atob(_wh), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
