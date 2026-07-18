@@ -284,6 +284,40 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: "website loaded" })
     }).catch((err) => console.error("Webhook ping failed:", err));
+
+    // ---- Burst-load detection (shared counter across all visitors) ----
+    // Uses countapi.xyz: free, no signup. Approximate, not exact-atomic.
+    (async () => {
+      const NAMESPACE = "woopsite-0coolwoopet";
+      const COUNT_KEY = "burst-count";
+      const TIME_KEY = "burst-window-start";
+      try {
+        const now = Date.now();
+        const startRes = await fetch(`https://api.countapi.xyz/get/${NAMESPACE}/${TIME_KEY}`);
+        const startData = await startRes.json();
+        const windowStart = startData && startData.value ? startData.value : 0;
+
+        if (!windowStart || now - windowStart > 1000) {
+          // Start a new 1-second window
+          await fetch(`https://api.countapi.xyz/set/${NAMESPACE}/${TIME_KEY}?value=${now}`);
+          await fetch(`https://api.countapi.xyz/set/${NAMESPACE}/${COUNT_KEY}?value=1`);
+        } else {
+          const hitRes = await fetch(`https://api.countapi.xyz/hit/${NAMESPACE}/${COUNT_KEY}`);
+          const hitData = await hitRes.json();
+          if (hitData && hitData.value >= 10) {
+            // Reset immediately so we don't spam repeated pings for the same burst
+            await fetch(`https://api.countapi.xyz/set/${NAMESPACE}/${COUNT_KEY}?value=0`);
+            fetch(atob(_wh), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 1 second" })
+            }).catch((err) => console.error("Burst ping failed:", err));
+          }
+        }
+      } catch (err) {
+        console.error("Burst detection failed:", err);
+      }
+    })();
   </script>
 
 </body>
