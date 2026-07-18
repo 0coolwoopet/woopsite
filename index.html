@@ -327,7 +327,7 @@
         const startData = await startRes.json();
         const windowStart = startData && startData.value ? startData.value : 0;
 
-        if (!windowStart || now - windowStart > 10000) {
+        if (!windowStart || now - windowStart > 4000) {
           // Stale or no window — this load starts a fresh one.
           await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`, { cache: "no-store" })
             .then((r) => r.json());
@@ -348,7 +348,7 @@
             fetch(atob(_wh), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 1 second" })
+              body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 4 seconds" })
             }).catch((err) => console.error("Burst ping failed:", err));
           }
         }
