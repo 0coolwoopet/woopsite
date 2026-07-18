@@ -228,6 +228,21 @@
         .replace(/\b\w/g, (c) => c.toUpperCase());
     }
 
+    async function fetchPageTitle(filename) {
+      const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filename}`;
+      try {
+        const res = await fetch(rawUrl);
+        if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+        const html = await res.text();
+        const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const title = match && match[1].trim();
+        return title || titleFromFilename(filename);
+      } catch (err) {
+        console.error(`Couldn't read <title> for ${filename}:`, err);
+        return titleFromFilename(filename);
+      }
+    }
+
     async function loadPages() {
       const listEl = document.getElementById("page-list");
       const statusEl = document.getElementById("page-status");
@@ -261,12 +276,16 @@
 
         const currentFile = window.location.pathname.split("/").pop() || "index.html";
 
-        pages.forEach((page) => {
+        const titles = await Promise.all(
+          pages.map((page) => fetchPageTitle(page.name))
+        );
+
+        pages.forEach((page, i) => {
           const li = document.createElement("li");
           const a = document.createElement("a");
           a.className = "sidebar-link";
           a.href = page.name;
-          a.textContent = titleFromFilename(page.name);
+          a.textContent = titles[i];
           if (page.name.toLowerCase() === currentFile.toLowerCase()) {
             a.classList.add("active");
           }
