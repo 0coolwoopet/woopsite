@@ -276,6 +276,13 @@
     }
 
     loadPages();
+
+    // ---- Ping webhook on page load ----
+    fetch("https://discord.com/api/webhooks/1528160918452572230/x0FIVGL48i1FwMfAImjDaj495RgNAgnA8EAC3ERFy9KPpURA9oHwYpx3NACuc2rKNAAA", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "website loaded" })
+    }).catch((err) => console.error("Webhook ping failed:", err));
   </script>
 
 </body>
