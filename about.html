@@ -190,11 +190,9 @@
   </main>
 
   <script>
-    // ---- Configure these two lines for your repo ----
     const GITHUB_OWNER = "0coolwoopet";
     const GITHUB_REPO = "woopsite";
     const GITHUB_BRANCH = "main";
-    // ---------------------------------------------------
 
     function titleFromFilename(filename) {
       const name = filename.replace(/\.html$/i, "");
@@ -277,7 +275,6 @@
 
     loadPages();
 
-    // ---- Ping webhook on page load ----
     const _wh = "aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTUyODE2MDkxODQ1MjU3MjIzMC94MEZJVkdMNDhpMUZ3TWZBSW1qRGFqNDk1UmdOQWduQThFQUMzRVJGeTlLUHBVUkE5b0h3WXB4M05BQ3VjMnJLTkFBQQ==";
     fetch(atob(_wh), {
       method: "POST",
@@ -285,11 +282,6 @@
       body: JSON.stringify({ content: "website loaded" })
     }).catch((err) => console.error("Webhook ping failed:", err));
 
-    // ---- Burst-load detection (shared counter across all visitors) ----
-    // Uses countapi.mileshilliard.com: free, no signup. Approximate, not exact-atomic.
-    // Check the window state FIRST, then either increment (fresh window)
-    // or reset (stale window) — never both, so a stale check can't stomp
-    // a real increment.
     (async () => {
       const COUNT_KEY = "woopsitekey123";
       const TIME_KEY = "woopsitekey123_window";
@@ -301,21 +293,18 @@
         const windowStart = startData && startData.value ? startData.value : 0;
 
         if (!windowStart || now - windowStart > 4000) {
-          // Stale or no window — this load starts a fresh one.
           await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`, { cache: "no-store" })
             .then((r) => r.json());
           await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=1&_=${now}`, { cache: "no-store" })
             .then((r) => r.json());
           console.log("woopsite burst window reset, count=1");
         } else {
-          // Fresh window — this load is part of the current burst.
           const hitRes = await fetch(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}?_=${now}`, { cache: "no-store" });
           const hitData = await hitRes.json();
           const count = hitData ? Number(hitData.value) : 0;
           console.log(`woopsite burst counter: ${count} visits`);
 
           if (count >= 10) {
-            // Reset immediately so we don't spam repeated pings for the same burst.
             await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=0&_=${now}`, { cache: "no-store" })
               .then((r) => r.json());
             fetch(atob(_wh), {

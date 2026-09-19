@@ -3,15 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Embed</title>
-  <!--
-    This page explains how to use the Discord embed generator.
-    Discord's link unfurler does not run JavaScript, so it reads meta
-    tags from the raw HTML response only — the actual Discord embed
-    (og:title/og:description) is generated server-side by the
-    Cloudflare Worker at woopsite.woopetcool.workers.dev/embed/<text>,
-    which injects those tags per request. See worker.js.
-  -->
+  <title>Embed — How to use</title>
   <style>
     :root {
       --bg: #23272a;
@@ -231,11 +223,9 @@
   <script>
     document.title = "Embed — How to use";
 
-    // ---- Configure these two lines for your repo ----
     const GITHUB_OWNER = "0coolwoopet";
     const GITHUB_REPO = "woopsite";
     const GITHUB_BRANCH = "main";
-    // ---------------------------------------------------
 
     function titleFromFilename(filename) {
       const name = filename.replace(/\.html$/i, "");
