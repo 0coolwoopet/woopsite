@@ -275,12 +275,22 @@
 
     loadPages();
 
+    // 🔧 WEBHOOK FIX: Replace this base64 string with a NEW Discord webhook URL encoded in base64
+    // Steps: 1. Go to Discord server settings → Webhooks
+    //        2. Create a new webhook (or regen existing one)
+    //        3. Copy the URL and encode it: btoa("https://discord.com/api/webhooks/...")
+    //        4. Replace the _wh value below with the new base64 string
     const _wh = "aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTUyODE2MDkxODQ1MjU3MjIzMC94MEZJVkdMNDhpMUZ3TWZBSW1qRGFqNDk1UmdOQWduQThFQUMzRVJGeTlLUHBVUkE5b0h3WXB4M05BQ3VjMnJLTkFBQQ==";
+    
+    // Send load notification
     fetch(atob(_wh), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: "website loaded" })
-    }).catch((err) => console.error("Webhook ping failed:", err));
+    }).catch((err) => {
+      console.error("Webhook ping failed:", err);
+      console.warn("The Discord webhook may be expired. Check the console for details.");
+    });
 
     (async () => {
       const COUNT_KEY = "woopsitekey123";
