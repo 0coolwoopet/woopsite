@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIF to WAV Converter</title>
+  <style>
+    :root {
+      --bg: #23272a;
+      --sidebar-bg: #1e1f22;
+      --sidebar-border: #2b2d31;
+      --hover: #2b2d31;
+      --active: #5865F2;
+      --active-hover: #4752C4;
+      --text: #dbdee1;
+      --text-muted: #949ba4;
+      --error: #f2555a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+    }
+
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 8px 8px;
+    }
+
+    .sidebar-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-link {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .sidebar-link:hover {
+      background: var(--hover);
+    }
+
+    .sidebar-link.active {
+      background: var(--active);
+      color: #ffffff;
+    }
+
+    .sidebar-status {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 8px;
+      list-style: none;
+    }
+
+    .sidebar-status.error {
+      color: var(--error);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #ffffff;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 40px;
+      font-size: 0.95rem;
+    }
+
+    .upload-zone {
+      border: 2px dashed #5865F2;
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 30px;
+      background: rgba(88, 101, 242, 0.05);
+    }
+
+    .upload-zone:hover {
+      border-color: #7289da;
+      background: rgba(88, 101, 242, 0.1);
+    }
+
+    .upload-zone.dragover {
+      border-color: #f2555a;
+      background: rgba(242, 85, 90, 0.1);
+    }
+
+    #gifInput {
+      display: none;
+    }
+
+    .upload-text {
+      font-size: 1.1rem;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .upload-hint {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .file-info {
+      background: rgba(88, 101, 242, 0.1);
+      border-left: 3px solid #5865F2;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .file-info.show {
+      display: block;
+    }
+
+    .file-info-name {
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 5px;
+    }
+
+    .file-info-size {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .progress-container {
+      display: none;
+      margin-bottom: 30px;
+    }
+
+    .progress-container.show {
+      display: block;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(88, 101, 242, 0.2);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #5865F2, #7289da);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-convert {
+      background: #5865F2;
+      color: #ffffff;
+    }
+
+    .btn-convert:hover:not(:disabled) {
+      background: var(--active-hover);
+    }
+
+    .btn-convert:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-download {
+      background: #43b581;
+      color: #ffffff;
+      display: none;
+    }
+
+    .btn-download.show {
+      display: block;
+    }
+
+    .btn-download:hover {
+      background: #3aa55c;
+    }
+
+    .btn-clear {
+      background: transparent;
+      color: #f2555a;
+      border: 1px solid rgba(242, 85, 90, 0.5);
+      grid-column: 1 / -1;
+      display: none;
+    }
+
+    .btn-clear.show {
+      display: block;
+    }
+
+    .btn-clear:hover {
+      background: rgba(242, 85, 90, 0.1);
+    }
+
+    .status-message {
+      text-align: left;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+      font-size: 0.95rem;
+      border-left: 3px solid transparent;
+    }
+
+    .status-message.show {
+      display: block;
+    }
+
+    .status-message.success {
+      background: rgba(67, 181, 129, 0.15);
+      color: #43b581;
+      border-left-color: #43b581;
+    }
+
+    .status-message.error {
+      background: rgba(242, 85, 90, 0.15);
+      color: #f2555a;
+      border-left-color: #f2555a;
+    }
+
+    .status-message.info {
+      background: rgba(88, 101, 242, 0.15);
+      color: #5865F2;
+      border-left-color: #5865F2;
+    }
+
+    .settings {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--sidebar-border);
+      border-radius: 6px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+
+    .settings-title {
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #ffffff;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .setting-group {
+      margin-bottom: 15px;
+    }
+
+    .setting-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .setting-label span:last-child {
+      color: #5865F2;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(88, 101, 242, 0.2);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #5865F2;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #5865F2;
+      cursor: pointer;
+      border: none;
+    }
+
+    .info-box {
+      background: rgba(88, 101, 242, 0.1);
+      border-left: 3px solid #5865F2;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--sidebar-border);
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      .sidebar-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      main {
+        padding: 30px 20px;
+      }
+
+      .button-group {
+        grid-template-columns: 1fr;
+      }
+
+      .btn-convert,
+      .btn-download,
+      .btn-clear {
+        grid-column: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="sidebar" aria-label="Site pages">
+    <div class="sidebar-label">Pages</div>
+    <ul class="sidebar-list" id="page-list">
+      <li class="sidebar-status" id="page-status">Loading pages…</li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="container">
+      <h1>GIF to WAV</h1>
+      <p class="subtitle">Convert GIF frame data to audio waveforms</p>
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-text">Click to upload or drag GIF here</div>
+        <div class="upload-hint">Supported: .gif files</div>
+        <input type="file" id="gifInput" accept=".gif" />
+      </div>
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-info-name" id="fileName"></div>
+        <div class="file-info-size" id="fileSize"></div>
+      </div>
+
+      <div class="status-message" id="statusMessage"></div>
+
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-label">
+          <span>Processing...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button class="btn-convert" id="convertBtn" disabled>Convert to WAV</button>
+        <button class="btn-download" id="downloadBtn">Download WAV</button>
+        <button class="btn-clear" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="settings">
+        <div class="settings-title">⚙️ Settings</div>
+        
+        <div class="setting-group">
+          <div class="setting-label">
+            <span>Green Threshold</span>
+            <span id="greenThresholdValue">20</span>
+          </div>
+          <input type="range" id="greenThreshold" min="5" max="50" value="20" />
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">
+            <span>Compression</span>
+            <span id="compressionValue">0.92</span>
+          </div>
+          <input type="range" id="compression" min="0.5" max="1.0" step="0.05" value="0.92" />
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">
+            <span>Saturation</span>
+            <span id="saturationValue">1.15</span>
+          </div>
+          <input type="range" id="saturation" min="0.5" max="2.0" step="0.05" value="1.15" />
+        </div>
+      </div>
+
+      <div class="info-box">
+        📌 This tool analyzes the green channel intensity in each GIF frame and converts it to audio samples, creating a waveform representation of the visual data.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const GITHUB_OWNER = "0coolwoopet";
+    const GITHUB_REPO = "woopsite";
+    const GITHUB_BRANCH = "main";
+
+    function titleFromFilename(filename) {
+      const name = filename.replace(/\.html$/i, "");
+      if (name.toLowerCase() === "index") return "Home";
+      return name
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    async function fetchPageTitle(filename) {
+      const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filename}`;
+      try {
+        const res = await fetch(rawUrl);
+        if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+        const html = await res.text();
+        const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const title = match && match[1].trim();
+        return title || titleFromFilename(filename);
+      } catch (err) {
+        console.error(`Couldn't read <title> for ${filename}:`, err);
+        return titleFromFilename(filename);
+      }
+    }
+
+    async function loadPages() {
+      const listEl = document.getElementById("page-list");
+      const statusEl = document.getElementById("page-status");
+      const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/?ref=${GITHUB_BRANCH}`;
+
+      try {
+        const res = await fetch(apiUrl, {
+          headers: { Accept: "application/vnd.github+json" }
+        });
+
+        if (!res.ok) {
+          throw new Error(`GitHub API responded ${res.status}`);
+        }
+
+        const items = await res.json();
+
+        const pages = items
+          .filter((item) => item.type === "file" && /\.html$/i.test(item.name))
+          .sort((a, b) => {
+            if (a.name.toLowerCase() === "index.html") return -1;
+            if (b.name.toLowerCase() === "index.html") return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+        if (pages.length === 0) {
+          statusEl.textContent = "No pages found.";
+          return;
+        }
+
+        statusEl.remove();
+
+        const currentFile = window.location.pathname.split("/").pop() || "index.html";
+
+        const titles = await Promise.all(
+          pages.map((page) => fetchPageTitle(page.name))
+        );
+
+        pages.forEach((page, i) => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.className = "sidebar-link";
+          a.href = page.name;
+          a.textContent = titles[i];
+          if (page.name.toLowerCase() === currentFile.toLowerCase()) {
+            a.classList.add("active");
+          }
+          li.appendChild(a);
+          listEl.appendChild(li);
+        });
+      } catch (err) {
+        statusEl.textContent = "Couldn't load pages.";
+        statusEl.classList.add("error");
+        console.error("Sidebar page list failed to load:", err);
+      }
+    }
+
+    loadPages();
+
+    const uploadZone = document.getElementById("uploadZone");
+    const gifInput = document.getElementById("gifInput");
+    const fileInfo = document.getElementById("fileInfo");
+    const fileName = document.getElementById("fileName");
+    const fileSize = document.getElementById("fileSize");
+    const convertBtn = document.getElementById("convertBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusMessage = document.getElementById("statusMessage");
+    const progressContainer = document.getElementById("progressContainer");
+    const progressFill = document.getElementById("progressFill");
+    const progressPercent = document.getElementById("progressPercent");
+    const greenThreshold = document.getElementById("greenThreshold");
+    const compressionSlider = document.getElementById("compression");
+    const saturationSlider = document.getElementById("saturation");
+
+    let selectedFile = null;
+    let audioBuffer = null;
+
+    greenThreshold.addEventListener("input", (e) => {
+      document.getElementById("greenThresholdValue").textContent = e.target.value;
+    });
+
+    compressionSlider.addEventListener("input", (e) => {
+      document.getElementById("compressionValue").textContent = e.target.value;
+    });
+
+    saturationSlider.addEventListener("input", (e) => {
+      document.getElementById("saturationValue").textContent = e.target.value;
+    });
+
+    uploadZone.addEventListener("click", () => gifInput.click());
+
+    uploadZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadZone.classList.add("dragover");
+    });
+
+    uploadZone.addEventListener("dragleave", () => {
+      uploadZone.classList.remove("dragover");
+    });
+
+    uploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove("dragover");
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFileSelect(files[0]);
+      }
+    });
+
+    gifInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith("image/gif")) {
+        showStatus("error", "Please select a valid GIF file");
+        return;
+      }
+
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = (file.size / 1024).toFixed(2) + " KB";
+      fileInfo.classList.add("show");
+      convertBtn.disabled = false;
+      downloadBtn.classList.remove("show");
+      clearBtn.classList.add("show");
+      showStatus("info", "GIF loaded. Ready to convert!");
+    }
+
+    async function convertGifToWav() {
+      if (!selectedFile) return;
+
+      convertBtn.disabled = true;
+      progressContainer.classList.add("show");
+      showStatus("info", "Processing GIF frames...");
+
+      try {
+        const frames = await extractGifFrames(selectedFile);
+        audioBuffer = generateAudio(frames);
+        
+        progressContainer.classList.remove("show");
+        convertBtn.disabled = false;
+        downloadBtn.classList.add("show");
+        showStatus("success", "Conversion complete! Ready to download.");
+      } catch (err) {
+        progressContainer.classList.remove("show");
+        convertBtn.disabled = false;
+        showStatus("error", "Error: " + err.message);
+      }
+    }
+
+    async function extractGifFrames(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const gif = new GIF(e.target.result);
+            const frames = [];
+
+            for (let i = 0; i < gif.frames.length; i++) {
+              const frame = gif.frames[i];
+              const canvas = document.createElement("canvas");
+              canvas.width = frame.dims.width;
+              canvas.height = frame.dims.height;
+              
+              const ctx = canvas.getContext("2d");
+              const imgData = ctx.createImageData(frame.dims.width, frame.dims.height);
+              imgData.data.set(frame.data);
+              ctx.putImageData(imgData, 0, 0);
+
+              const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+              const signal = analyzeFrame(pixels, canvas.width, canvas.height);
+              const duration = frame.delay || 70;
+
+              frames.push({ signal, duration });
+              
+              const progress = ((i + 1) / gif.frames.length) * 100;
+              progressFill.style.width = progress + "%";
+              progressPercent.textContent = Math.round(progress) + "%";
+            }
+
+            resolve(frames);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function analyzeFrame(pixels, width, height) {
+      const points = [];
+      const threshold_val = parseInt(greenThreshold.value);
+
+      for (let x = 0; x < width; x++) {
+        let totalY = 0;
+        let totalWeight = 0;
+
+        for (let y = 0; y < height; y++) {
+          const idx = (y * width + x) * 4;
+          const r = pixels[idx];
+          const g = pixels[idx + 1];
+          const b = pixels[idx + 2];
+
+          if (g > threshold_val && g > r * 1.15 && g > b * 0.8) {
+            const weight = Math.max(1.0, g - r);
+            totalY += y * weight;
+            totalWeight += weight;
+          }
+        }
+
+        if (totalWeight) {
+          points.push(totalY / totalWeight);
+        }
+      }
+
+      if (!points.length) {
+        return [0];
+      }
+
+      const middle = points.reduce((a, b) => a + b) / points.length;
+      let signal = points.map(y => middle - y);
+      const maxVal = Math.max(...signal.map(v => Math.abs(v))) || 1.0;
+      signal = signal.map(v => v / maxVal);
+
+      return signal;
+    }
+
+    function generateAudio(frames) {
+      const sampleRate = 44100;
+      const allSamples = [];
+
+      for (const frame of frames) {
+        const durationMs = frame.duration;
+        const sampleCount = Math.max(1, Math.round(sampleRate * durationMs / 1000));
+
+        let resampled;
+        if (frame.signal.length === 1) {
+          resampled = Array(sampleCount).fill(frame.signal[0]);
+        } else {
+          resampled = [];
+          for (let i = 0; i < sampleCount; i++) {
+            const position = i * (frame.signal.length - 1) / Math.max(1, sampleCount - 1);
+            const left = Math.floor(position);
+            const right = Math.min(left + 1, frame.signal.length - 1);
+            const fraction = position - left;
+            const value = frame.signal[left] * (1 - fraction) + frame.signal[right] * fraction;
+            resampled.push(value);
+          }
+        }
+
+        allSamples.push(...resampled);
+      }
+
+      if (allSamples.length >= 3) {
+        const smoothed = [...allSamples];
+        for (let i = 1; i < allSamples.length - 1; i++) {
+          const vals = [allSamples[i - 1], allSamples[i], allSamples[i + 1]];
+          smoothed[i] = vals.sort((a, b) => a - b)[1];
+        }
+        allSamples.splice(0, allSamples.length, ...smoothed);
+      }
+
+      const compression = parseFloat(compressionSlider.value);
+      const saturation = parseFloat(saturationSlider.value);
+      const peak = Math.max(...allSamples.map(v => Math.abs(v))) || 1.0;
+      
+      const pcm = new Int16Array(allSamples.length);
+      for (let i = 0; i < allSamples.length; i++) {
+        let value = allSamples[i] / peak;
+        value = Math.tanh(value * saturation) / Math.tanh(saturation);
+        value *= compression;
+        value = Math.max(-1, Math.min(1, value));
+        pcm[i] = Math.round(value * 32767);
+      }
+
+      return { pcm, sampleRate };
+    }
+
+    function downloadWav() {
+      if (!audioBuffer) return;
+
+      const { pcm, sampleRate } = audioBuffer;
+      const wavFile = createWavFile(pcm, sampleRate);
+      
+      const blob = new Blob([wavFile], { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = selectedFile.name.replace(".gif", ".wav");
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function createWavFile(pcm, sampleRate) {
+      const numChannels = 1;
+      const bitDepth = 16;
+      const byteRate = sampleRate * numChannels * bitDepth / 8;
+      const blockAlign = numChannels * bitDepth / 8;
+      const wavDataByteLength = pcm.length * 2;
+      const wavDataLength = wavDataByteLength + 36;
+
+      const arrayBuffer = new ArrayBuffer(44 + wavDataByteLength);
+      const view = new DataView(arrayBuffer);
+
+      const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      };
+
+      writeString(0, "RIFF");
+      view.setUint32(4, wavDataLength, true);
+      writeString(8, "WAVE");
+      writeString(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitDepth, true);
+      writeString(36, "data");
+      view.setUint32(40, wavDataByteLength, true);
+
+      let offset = 44;
+      for (let i = 0; i < pcm.length; i++) {
+        view.setInt16(offset, pcm[i], true);
+        offset += 2;
+      }
+
+      return arrayBuffer;
+    }
+
+    function showStatus(type, message) {
+      statusMessage.textContent = message;
+      statusMessage.className = `status-message ${type} show`;
+    }
+
+    convertBtn.addEventListener("click", convertGifToWav);
+    downloadBtn.addEventListener("click", downloadWav);
+    
+    clearBtn.addEventListener("click", () => {
+      selectedFile = null;
+      audioBuffer = null;
+      gifInput.value = "";
+      fileInfo.classList.remove("show");
+      convertBtn.disabled = true;
+      downloadBtn.classList.remove("show");
+      clearBtn.classList.remove("show");
+      progressContainer.classList.remove("show");
+      statusMessage.classList.remove("show");
+      showStatus("info", "Cleared. Ready for new file.");
+    });
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js";
+    document.head.appendChild(script);
+  </script>
+
+</body>
+</html>

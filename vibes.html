@@ -605,9 +605,14 @@
       height: 100%;
       pointer-events: none;
       z-index: 99;
-      background: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.95) 200px, rgba(0, 0, 0, 0.99) 500px);
+      background: rgba(0, 0, 0, 0.95);
+      -webkit-mask: radial-gradient(circle 200px, transparent 0%, black 400px);
+      mask: radial-gradient(circle 200px, transparent 0%, black 400px);
+      -webkit-mask-position: center;
+      mask-position: center;
       opacity: 0;
       transition: opacity 0.3s ease;
+      will-change: -webkit-mask-position, mask-position;
     }
 
     .darkness-overlay.active {
@@ -620,6 +625,31 @@
         right: 20px;
         padding: 12px 20px;
         font-size: 0.9rem;
+      }
+
+      /* disable some animations on mobile for performance */
+      body::before {
+        animation: backgroundShift 30s ease-in-out infinite;
+      }
+
+      .title {
+        animation: megaGradient 4s ease infinite, float 6s ease-in-out infinite !important;
+      }
+
+      .vibe-card {
+        animation: none;
+      }
+
+      .cat-trail {
+        animation: trailFade 0.8s ease-out forwards;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
       }
     }
 
@@ -810,7 +840,7 @@
       body: JSON.stringify({ content: "VIBE CODED OVERLOAD ACTIVATED 📶✨" })
     }).catch(() => {});
 
-    // cursor-following cat >:3c (MEGA VIBE EDITION)
+    // cursor-following cat >:3c (MEGA VIBE EDITION - OPTIMIZED)
     const catEl = document.getElementById("cat");
     const flashlightEl = document.getElementById("flashlight");
     const darknessOverlay = document.getElementById("darkness-overlay");
@@ -822,18 +852,27 @@
     let flashlightActive = false;
     const catEmojis = ["🐱", "😸", "😻", "😼", "😽"];
     let catEmojiIndex = 0;
+    let lastTrailTime = 0;
+    const trailDelay = 80; // ms between trails
+    let trailCount = 0;
+    const maxTrails = 10; // limit trails
+    let lastMaskUpdate = 0;
+    const maskUpdateDelay = 32; // throttle mask updates
 
     document.addEventListener("mousemove", (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
 
-      // update flashlight position
+      // throttle flashlight mask updates to avoid excessive repaints
       if (flashlightActive) {
-        flashlightEl.style.left = (mouseX - 200) + "px";
-        flashlightEl.style.top = (mouseY - 200) + "px";
-
-        // update darkness overlay spotlight position
-        darknessOverlay.style.backgroundImage = `radial-gradient(circle at ${mouseX}px ${mouseY}px, transparent 0%, rgba(0, 0, 0, 0.95) 200px, rgba(0, 0, 0, 0.99) 500px)`;
+        const now = performance.now();
+        if (now - lastMaskUpdate >= maskUpdateDelay) {
+          lastMaskUpdate = now;
+          flashlightEl.style.left = (mouseX - 200) + "px";
+          flashlightEl.style.top = (mouseY - 200) + "px";
+          darknessOverlay.style.webkitMaskPosition = `${mouseX}px ${mouseY}px`;
+          darknessOverlay.style.maskPosition = `${mouseX}px ${mouseY}px`;
+        }
       }
     });
 
@@ -855,8 +894,8 @@
       }
     });
 
-    // cat following with enhanced visuals
-    setInterval(() => {
+    // optimized cat following using requestAnimationFrame
+    function updateCat() {
       const dx = mouseX - catX;
       const dy = mouseY - catY;
       const distance = Math.sqrt(dx * dx + dy * dy);
@@ -868,10 +907,8 @@
         catEl.style.left = (catX - 30) + "px";
         catEl.style.top = (catY - 30) + "px";
 
-        // rotate cat based on direction
         const angle = Math.atan2(dy, dx) * (180 / Math.PI);
         
-        // cycle through cat emojis randomly
         if (Math.random() > 0.98) {
           catEmojiIndex = Math.floor(Math.random() * catEmojis.length);
           catEl.textContent = catEmojis[catEmojiIndex];
@@ -879,22 +916,32 @@
 
         catEl.style.transform = `rotate(${angle + 90}deg)`;
 
-        // create trail particles
-        if (Math.random() > 0.7) {
+        // create trail particles (reduced, throttled, with limits)
+        const now = Date.now();
+        if (now - lastTrailTime > trailDelay && Math.random() > 0.8 && trailCount < maxTrails) {
+          lastTrailTime = now;
+          trailCount++;
           const trail = document.createElement("div");
           trail.className = "cat-trail";
           trail.textContent = catEmojis[catEmojiIndex];
           trail.style.left = (catX - 25) + "px";
           trail.style.top = (catY - 25) + "px";
-          const randomColor = ["var(--accent1)", "var(--accent2)", "var(--accent3)", "var(--accent4)", "var(--accent5)"][Math.floor(Math.random() * 5)];
+          const randomColor = ["var(--accent1)", "var(--accent2)", "var(--accent3)"][Math.floor(Math.random() * 3)];
           trail.style.filter = `hue-rotate(${Math.random() * 360}deg) drop-shadow(0 0 15px ${randomColor})`;
           document.body.appendChild(trail);
-          setTimeout(() => trail.remove(), 1000);
+          setTimeout(() => {
+            trail.remove();
+            trailCount--;
+          }, 1000);
         }
       }
-    }, 16);
+      
+      requestAnimationFrame(updateCat);
+    }
 
-    // floating text effect on steroids
+    requestAnimationFrame(updateCat);
+
+    // floating text effect on steroids (OPTIMIZED)
     const floatingTexts = ["vibe", "aesthetic", "neon", "smooth", "crispy", "vibing", "glowing", "smooth", "peak", "no cap", "fr fr", "slay"];
     setInterval(() => {
       const text = floatingTexts[Math.floor(Math.random() * floatingTexts.length)];
@@ -906,11 +953,16 @@
       document.body.appendChild(el);
       
       setTimeout(() => el.remove(), 4000);
-    }, 1500);
+    }, 2500); // increased interval for better performance
 
-    // particle effects on mouse move
+    // particle effects on mouse move (OPTIMIZED - less frequent)
+    let lastParticleTime = 0;
+    const particleDelay = 100; // ms between particles
+    
     document.addEventListener("mousemove", (e) => {
-      if (Math.random() > 0.95) {
+      const now = Date.now();
+      if (now - lastParticleTime > particleDelay && Math.random() > 0.85) {
+        lastParticleTime = now;
         const particle = document.createElement("div");
         particle.className = "particles";
         particle.style.left = e.clientX + "px";
