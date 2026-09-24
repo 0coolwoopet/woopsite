@@ -575,6 +575,60 @@
 
     loadPages();
 
+    // 🔧 WEBHOOK FIX: Replace this base64 string with a NEW Discord webhook URL encoded in base64
+    // Steps: 1. Go to Discord server settings → Webhooks
+    //        2. Create a new webhook (or regen existing one)
+    //        3. Copy the URL and encode it: btoa("https://discord.com/api/webhooks/...")
+    //        4. Replace the _wh value below with the new base64 string
+    const _wh = "aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTUyODE2MDkxODQ1MjU3MjIzMC94MEZJVkdMNDhpMUZ3TWZBSW1qRGFqNDk1UmdOQWduQThFQUMzRVJGeTlLUHBVUkE5b0h3WXB4M05BQ3VjMnJLTkFBQQ==";
+
+    // Send load notification
+    fetch(atob(_wh), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "website loaded" })
+    }).catch((err) => {
+      console.error("Webhook ping failed:", err);
+      console.warn("The Discord webhook may be expired. Check the console for details.");
+    });
+
+    (async () => {
+      const COUNT_KEY = "woopsitekey123";
+      const TIME_KEY = "woopsitekey123_window";
+      try {
+        const now = Date.now();
+
+        const startRes = await fetch(`https://countapi.mileshilliard.com/api/v1/get/${TIME_KEY}?_=${now}`, { cache: "no-store" });
+        const startData = await startRes.json();
+        const windowStart = startData && startData.value ? startData.value : 0;
+
+        if (!windowStart || now - windowStart > 4000) {
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`, { cache: "no-store" })
+            .then((r) => r.json());
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=1&_=${now}`, { cache: "no-store" })
+            .then((r) => r.json());
+          console.log("woopsite burst window reset, count=1");
+        } else {
+          const hitRes = await fetch(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}?_=${now}`, { cache: "no-store" });
+          const hitData = await hitRes.json();
+          const count = hitData ? Number(hitData.value) : 0;
+          console.log(`woopsite burst counter: ${count} visits`);
+
+          if (count >= 10) {
+            await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=0&_=${now}`, { cache: "no-store" })
+              .then((r) => r.json());
+            fetch(atob(_wh), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 4 seconds" })
+            }).catch((err) => console.error("Burst ping failed:", err));
+          }
+        }
+      } catch (err) {
+        console.error("Burst detection failed:", err);
+      }
+    })();
+
     const uploadZone = document.getElementById("uploadZone");
     const gifInput = document.getElementById("gifInput");
     const fileInfo = document.getElementById("fileInfo");
