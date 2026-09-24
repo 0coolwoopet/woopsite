@@ -260,6 +260,47 @@
     .check-row label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
     .check-row input { accent-color: #5865F2; width: 16px; height: 16px; }
 
+    .nitro-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-top: -4px;
+    }
+    .nitro-toggle input { accent-color: #5865F2; width: 16px; height: 16px; }
+
+    .discord-chunks {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .discord-chunks.show { display: flex; }
+
+    .discord-chunk {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--sidebar-border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.9rem;
+    }
+
+    .discord-chunk button {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      background: #5865F2;
+      color: #fff;
+    }
+    .discord-chunk button:hover { background: var(--active-hover); }
+    .discord-chunk button.copied { background: #43b581; }
+
     .info-box {
       background: rgba(88, 101, 242, 0.1);
       border-left: 3px solid #5865F2;
@@ -321,8 +362,14 @@
       <div class="button-group">
         <button class="btn-copy" id="copyBtn" disabled>Copy text</button>
         <button class="btn-download" id="downloadBtn" disabled>Download .txt</button>
+        <button class="btn-copy" id="discordBtn" disabled style="grid-column: 1 / -1;">Copy for Discord</button>
+        <label class="nitro-toggle" style="grid-column: 1 / -1;">
+          <input type="checkbox" id="nitro" /> Nitro (4,000 character limit)
+        </label>
         <button class="btn-clear" id="clearBtn">Clear</button>
       </div>
+
+      <div class="discord-chunks" id="discordChunks"></div>
 
       <div class="settings">
         <div class="settings-title">⚙️ Settings</div>
@@ -364,7 +411,7 @@
       </div>
 
       <div class="info-box">
-        📌 Each pixel of the resized image is mapped to a character based on its brightness. Everything runs in your browser and nothing is uploaded. Copy and download always give plain text, even with color preview on.
+        📌 Each pixel of the resized image is mapped to a character based on its brightness. Everything runs in your browser and nothing is uploaded. Copy and download always give plain text, even with color preview on. Use "Copy for Discord" to wrap the art in a code block so it stays monospaced — a width around 60–80 keeps it readable without side-scrolling on desktop.
       </div>
     </div>
   </main>
@@ -515,6 +562,9 @@
     const asciiOut = $("asciiOut");
     const copyBtn = $("copyBtn");
     const downloadBtn = $("downloadBtn");
+    const discordBtn = $("discordBtn");
+    const discordChunks = $("discordChunks");
+    const nitro = $("nitro");
     const clearBtn = $("clearBtn");
     const statusMessage = $("statusMessage");
     const canvas = document.createElement("canvas");
@@ -608,7 +658,87 @@
       asciiOut.style.fontSize = controls.fontSize.value + "px";
       if (useColor) asciiOut.innerHTML = html;
       else asciiOut.textContent = text;
+
+      discordChunks.classList.remove("show");
+      discordChunks.innerHTML = "";
     }
+
+    // Discord messages cap at 2000 chars (4000 with Nitro); a ```\n ... \n``` fence
+    // costs 8 chars, so keep each chunk's raw text a bit under the limit to be safe.
+    function discordLimit() {
+      return nitro.checked ? 3900 : 1900;
+    }
+
+    function buildDiscordChunks(text) {
+      const limit = discordLimit();
+      const lines = text.replace(/\n$/, "").split("\n");
+      const chunks = [];
+      let current = [];
+      let currentLen = 0;
+
+      for (const line of lines) {
+        const lineLen = line.length + 1;
+        if (currentLen + lineLen > limit && current.length) {
+          chunks.push(current.join("\n"));
+          current = [];
+          currentLen = 0;
+        }
+        current.push(line);
+        currentLen += lineLen;
+      }
+      if (current.length) chunks.push(current.join("\n"));
+
+      return chunks.map((c) => "```\n" + c + "\n```");
+    }
+
+    async function copyToClipboard(str) {
+      try {
+        await navigator.clipboard.writeText(str);
+        return true;
+      } catch (err) {
+        const ta = document.createElement("textarea");
+        ta.value = str;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        return true;
+      }
+    }
+
+    discordBtn.addEventListener("click", async () => {
+      if (!lastText) return;
+      const chunks = buildDiscordChunks(lastText);
+
+      if (chunks.length === 1) {
+        await copyToClipboard(chunks[0]);
+        discordChunks.classList.remove("show");
+        discordChunks.innerHTML = "";
+        showStatus("success", "Copied — paste directly into Discord.");
+        return;
+      }
+
+      discordChunks.innerHTML = "";
+      chunks.forEach((chunk, i) => {
+        const row = document.createElement("div");
+        row.className = "discord-chunk";
+        const label = document.createElement("span");
+        label.textContent = `Message ${i + 1} of ${chunks.length}`;
+        const btn = document.createElement("button");
+        btn.textContent = "Copy";
+        btn.addEventListener("click", async () => {
+          await copyToClipboard(chunk);
+          btn.textContent = "Copied";
+          btn.classList.add("copied");
+          setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1500);
+        });
+        row.appendChild(label);
+        row.appendChild(btn);
+        discordChunks.appendChild(row);
+      });
+      discordChunks.classList.add("show");
+      showStatus("info", `This art needs ${chunks.length} separate Discord messages — copy and send them in order.`);
+    });
 
     function handleFileSelect(file) {
       if (!file.type.startsWith("image/")) {
@@ -630,6 +760,7 @@
         outputWrap.classList.add("show");
         copyBtn.disabled = false;
         downloadBtn.disabled = false;
+        discordBtn.disabled = false;
         clearBtn.classList.add("show");
         render();
         showStatus("success", "ASCII art ready. Adjust the settings below to tweak it.");
@@ -703,6 +834,9 @@
       outputWrap.classList.remove("show");
       copyBtn.disabled = true;
       downloadBtn.disabled = true;
+      discordBtn.disabled = true;
+      discordChunks.classList.remove("show");
+      discordChunks.innerHTML = "";
       clearBtn.classList.remove("show");
       showStatus("info", "Cleared. Ready for new file.");
     });
