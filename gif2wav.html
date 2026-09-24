@@ -670,43 +670,56 @@
       }
     }
 
+    let gifuctLibPromise = null;
+    function loadGifuct() {
+      if (!gifuctLibPromise) {
+        gifuctLibPromise = import("https://cdn.jsdelivr.net/npm/[email protected]/+esm");
+      }
+      return gifuctLibPromise;
+    }
+
     async function extractGifFrames(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          try {
-            const gif = new GIF(e.target.result);
-            const frames = [];
+      const { parseGIF, decompressFrames } = await loadGifuct();
 
-            for (let i = 0; i < gif.frames.length; i++) {
-              const frame = gif.frames[i];
-              const canvas = document.createElement("canvas");
-              canvas.width = frame.dims.width;
-              canvas.height = frame.dims.height;
-              
-              const ctx = canvas.getContext("2d");
-              const imgData = ctx.createImageData(frame.dims.width, frame.dims.height);
-              imgData.data.set(frame.data);
-              ctx.putImageData(imgData, 0, 0);
+      const buffer = await file.arrayBuffer();
+      const gif = parseGIF(buffer);
+      const rawFrames = decompressFrames(gif, true);
 
-              const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-              const signal = analyzeFrame(pixels, canvas.width, canvas.height);
-              const duration = frame.delay || 70;
+      if (!rawFrames.length) {
+        throw new Error("This GIF has no readable frames.");
+      }
 
-              frames.push({ signal, duration });
-              
-              const progress = ((i + 1) / gif.frames.length) * 100;
-              progressFill.style.width = progress + "%";
-              progressPercent.textContent = Math.round(progress) + "%";
-            }
+      const frames = [];
 
-            resolve(frames);
-          } catch (err) {
-            reject(err);
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      });
+      for (let i = 0; i < rawFrames.length; i++) {
+        const frame = rawFrames[i];
+        const canvas = document.createElement("canvas");
+        canvas.width = frame.dims.width;
+        canvas.height = frame.dims.height;
+
+        const ctx = canvas.getContext("2d");
+        // frame.patch is the already-decoded RGBA pixel data for this frame's
+        // rectangle (frame.data is only the raw palette-index data, which
+        // putImageData can't render directly).
+        const imgData = new ImageData(
+          new Uint8ClampedArray(frame.patch),
+          frame.dims.width,
+          frame.dims.height
+        );
+        ctx.putImageData(imgData, 0, 0);
+
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const signal = analyzeFrame(pixels, canvas.width, canvas.height);
+        const duration = frame.delay || 70;
+
+        frames.push({ signal, duration });
+
+        const progress = ((i + 1) / rawFrames.length) * 100;
+        progressFill.style.width = progress + "%";
+        progressPercent.textContent = Math.round(progress) + "%";
+      }
+
+      return frames;
     }
 
     function analyzeFrame(pixels, width, height) {
@@ -874,9 +887,6 @@
       showStatus("info", "Cleared. Ready for new file.");
     });
 
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js";
-    document.head.appendChild(script);
   </script>
 
 </body>
