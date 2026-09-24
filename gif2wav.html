@@ -808,7 +808,9 @@
 
       const middle = points.reduce((a, b) => a + b) / points.length;
       let signal = points.map(y => middle - y);
-      const maxVal = Math.max(...signal.map(v => Math.abs(v))) || 1.0;
+      let maxVal = 0;
+      for (let _i = 0; _i < signal.length; _i++) { const _a = Math.abs(signal[_i]); if (_a > maxVal) maxVal = _a; }
+      if (maxVal === 0) maxVal = 1.0;
       signal = signal.map(v => v / maxVal);
 
       return signal;
@@ -837,7 +839,7 @@
           }
         }
 
-        allSamples.push(...resampled);
+        for (let _i = 0; _i < resampled.length; _i++) allSamples.push(resampled[_i]);
       }
 
       if (allSamples.length >= 3) {
@@ -846,12 +848,14 @@
           const vals = [allSamples[i - 1], allSamples[i], allSamples[i + 1]];
           smoothed[i] = vals.sort((a, b) => a - b)[1];
         }
-        allSamples.splice(0, allSamples.length, ...smoothed);
+        for (let _i = 0; _i < smoothed.length; _i++) allSamples[_i] = smoothed[_i];
       }
 
       const compression = parseFloat(compressionSlider.value);
       const saturation = parseFloat(saturationSlider.value);
-      const peak = Math.max(...allSamples.map(v => Math.abs(v))) || 1.0;
+      let peak = 0;
+      for (let _i = 0; _i < allSamples.length; _i++) { const _a = Math.abs(allSamples[_i]); if (_a > peak) peak = _a; }
+      if (peak === 0) peak = 1.0;
       
       const pcm = new Int16Array(allSamples.length);
       for (let i = 0; i < allSamples.length; i++) {
