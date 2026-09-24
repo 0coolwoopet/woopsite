@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image to ASCII</title>
+  <style>
+    :root {
+      --bg: #23272a;
+      --sidebar-bg: #1e1f22;
+      --sidebar-border: #2b2d31;
+      --hover: #2b2d31;
+      --active: #5865F2;
+      --active-hover: #4752C4;
+      --text: #dbdee1;
+      --text-muted: #949ba4;
+      --error: #f2555a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+    }
+
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 8px 8px;
+    }
+
+    .sidebar-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-link {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .sidebar-link:hover { background: var(--hover); }
+    .sidebar-link.active { background: var(--active); color: #ffffff; }
+
+    .sidebar-status {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 8px;
+      list-style: none;
+    }
+    .sidebar-status.error { color: var(--error); }
+
+    main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .container { max-width: 900px; width: 100%; }
+
+    h1 { font-size: 2rem; margin-bottom: 10px; color: #ffffff; }
+
+    .subtitle { color: var(--text-muted); margin-bottom: 40px; font-size: 0.95rem; }
+
+    .upload-zone {
+      border: 2px dashed #5865F2;
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 30px;
+      background: rgba(88, 101, 242, 0.05);
+    }
+    .upload-zone:hover { border-color: #7289da; background: rgba(88, 101, 242, 0.1); }
+    .upload-zone.dragover { border-color: #f2555a; background: rgba(242, 85, 90, 0.1); }
+
+    #imageInput { display: none; }
+
+    .upload-text { font-size: 1.1rem; color: var(--text); margin-bottom: 10px; }
+    .upload-hint { font-size: 0.85rem; color: var(--text-muted); }
+
+    .file-info {
+      background: rgba(88, 101, 242, 0.1);
+      border-left: 3px solid #5865F2;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .file-info.show { display: block; }
+    .file-info-name { font-weight: 600; color: #ffffff; margin-bottom: 5px; word-break: break-all; }
+    .file-info-size { font-size: 0.9rem; color: var(--text-muted); }
+
+    .status-message {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+      font-size: 0.95rem;
+      border-left: 3px solid transparent;
+    }
+    .status-message.show { display: block; }
+    .status-message.success { background: rgba(67, 181, 129, 0.15); color: #43b581; border-left-color: #43b581; }
+    .status-message.error { background: rgba(242, 85, 90, 0.15); color: #f2555a; border-left-color: #f2555a; }
+    .status-message.info { background: rgba(88, 101, 242, 0.15); color: #5865F2; border-left-color: #5865F2; }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-copy { background: #5865F2; color: #ffffff; }
+    .btn-copy:hover:not(:disabled) { background: var(--active-hover); }
+    .btn-download { background: #43b581; color: #ffffff; }
+    .btn-download:hover:not(:disabled) { background: #3aa55c; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-clear {
+      background: transparent;
+      color: #f2555a;
+      border: 1px solid rgba(242, 85, 90, 0.5);
+      grid-column: 1 / -1;
+      display: none;
+    }
+    .btn-clear.show { display: block; }
+    .btn-clear:hover { background: rgba(242, 85, 90, 0.1); }
+
+    .output-wrap { display: none; margin-bottom: 20px; }
+    .output-wrap.show { display: block; }
+
+    .output {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--sidebar-border);
+      border-radius: 6px;
+      padding: 16px;
+      overflow: auto;
+      max-height: 70vh;
+    }
+
+    .output pre {
+      font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+      line-height: 1.1;
+      letter-spacing: 0;
+      color: var(--text);
+      white-space: pre;
+      width: max-content;
+      margin: 0 auto;
+    }
+
+    .settings {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--sidebar-border);
+      border-radius: 6px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+
+    .settings-title {
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #ffffff;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .setting-group { margin-bottom: 15px; }
+
+    .setting-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+    .setting-label span:last-child { color: #5865F2; font-weight: 600; }
+
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(88, 101, 242, 0.2);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #5865F2;
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #5865F2;
+      cursor: pointer;
+      border: none;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--sidebar-bg);
+      color: var(--text);
+      border: 1px solid var(--sidebar-border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .check-row { display: flex; gap: 24px; flex-wrap: wrap; }
+    .check-row label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
+    .check-row input { accent-color: #5865F2; width: 16px; height: 16px; }
+
+    .info-box {
+      background: rgba(88, 101, 242, 0.1);
+      border-left: 3px solid #5865F2;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 700px) {
+      body { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--sidebar-border);
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .sidebar-list { flex-direction: row; flex-wrap: wrap; }
+      main { padding: 30px 20px; }
+      .button-group { grid-template-columns: 1fr; }
+      .btn-clear { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="sidebar" aria-label="Site pages">
+    <div class="sidebar-label">Pages</div>
+    <ul class="sidebar-list" id="page-list">
+      <li class="sidebar-status" id="page-status">Loading pages…</li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="container">
+      <h1>Image to ASCII</h1>
+      <p class="subtitle">Turn any image into text art</p>
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-text">Click to upload or drag an image here</div>
+        <div class="upload-hint">Supported: PNG, JPG, GIF (first frame), WebP</div>
+        <input type="file" id="imageInput" accept="image/*" />
+      </div>
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-info-name" id="fileName"></div>
+        <div class="file-info-size" id="fileSize"></div>
+      </div>
+
+      <div class="status-message" id="statusMessage"></div>
+
+      <div class="output-wrap" id="outputWrap">
+        <div class="output"><pre id="asciiOut"></pre></div>
+      </div>
+
+      <div class="button-group">
+        <button class="btn-copy" id="copyBtn" disabled>Copy text</button>
+        <button class="btn-download" id="downloadBtn" disabled>Download .txt</button>
+        <button class="btn-clear" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="settings">
+        <div class="settings-title">⚙️ Settings</div>
+
+        <div class="setting-group">
+          <div class="setting-label"><span>Width (characters)</span><span id="widthValue">100</span></div>
+          <input type="range" id="width" min="20" max="200" step="1" value="100" />
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label"><span>Brightness</span><span id="brightnessValue">0</span></div>
+          <input type="range" id="brightness" min="-100" max="100" step="1" value="0" />
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label"><span>Contrast</span><span id="contrastValue">1.00</span></div>
+          <input type="range" id="contrast" min="0.5" max="2.5" step="0.05" value="1" />
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label"><span>Preview font size</span><span id="fontSizeValue">7px</span></div>
+          <input type="range" id="fontSize" min="3" max="16" step="1" value="7" />
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label"><span>Character set</span></div>
+          <select id="charset">
+            <option value="standard">Standard</option>
+            <option value="detailed">Detailed</option>
+            <option value="blocks">Blocks</option>
+            <option value="binary">Binary</option>
+          </select>
+        </div>
+
+        <div class="check-row">
+          <label><input type="checkbox" id="invert" /> Invert</label>
+          <label><input type="checkbox" id="color" /> Color preview</label>
+        </div>
+      </div>
+
+      <div class="info-box">
+        📌 Each pixel of the resized image is mapped to a character based on its brightness. Everything runs in your browser and nothing is uploaded. Copy and download always give plain text, even with color preview on.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const GITHUB_OWNER = "0coolwoopet";
+    const GITHUB_REPO = "woopsite";
+    const GITHUB_BRANCH = "main";
+
+    function titleFromFilename(filename) {
+      const name = filename.replace(/\.html$/i, "");
+      if (name.toLowerCase() === "index") return "Home";
+      return name
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    async function fetchPageTitle(filename) {
+      const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filename}`;
+      try {
+        const res = await fetch(rawUrl);
+        if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+        const html = await res.text();
+        const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const title = match && match[1].trim();
+        return title || titleFromFilename(filename);
+      } catch (err) {
+        console.error(`Couldn't read <title> for ${filename}:`, err);
+        return titleFromFilename(filename);
+      }
+    }
+
+    async function loadPages() {
+      const listEl = document.getElementById("page-list");
+      const statusEl = document.getElementById("page-status");
+      const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/?ref=${GITHUB_BRANCH}`;
+
+      try {
+        const res = await fetch(apiUrl, { headers: { Accept: "application/vnd.github+json" } });
+        if (!res.ok) throw new Error(`GitHub API responded ${res.status}`);
+
+        const items = await res.json();
+        const pages = items
+          .filter((item) => item.type === "file" && /\.html$/i.test(item.name))
+          .sort((a, b) => {
+            if (a.name.toLowerCase() === "index.html") return -1;
+            if (b.name.toLowerCase() === "index.html") return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+        if (pages.length === 0) {
+          statusEl.textContent = "No pages found.";
+          return;
+        }
+
+        statusEl.remove();
+        const currentFile = window.location.pathname.split("/").pop() || "index.html";
+        const titles = await Promise.all(pages.map((page) => fetchPageTitle(page.name)));
+
+        pages.forEach((page, i) => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.className = "sidebar-link";
+          a.href = page.name;
+          a.textContent = titles[i];
+          if (page.name.toLowerCase() === currentFile.toLowerCase()) a.classList.add("active");
+          li.appendChild(a);
+          listEl.appendChild(li);
+        });
+      } catch (err) {
+        statusEl.textContent = "Couldn't load pages.";
+        statusEl.classList.add("error");
+        console.error("Sidebar page list failed to load:", err);
+      }
+    }
+
+    loadPages();
+
+    // 🔧 WEBHOOK FIX: Replace this base64 string with a NEW Discord webhook URL encoded in base64
+    // Steps: 1. Go to Discord server settings → Webhooks
+    //        2. Create a new webhook (or regen existing one)
+    //        3. Copy the URL and encode it: btoa("https://discord.com/api/webhooks/...")
+    //        4. Replace the _wh value below with the new base64 string
+    const _wh = "aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTUyODE2MDkxODQ1MjU3MjIzMC94MEZJVkdMNDhpMUZ3TWZBSW1qRGFqNDk1UmdOQWduQThFQUMzRVJGeTlLUHBVUkE5b0h3WXB4M05BQ3VjMnJLTkFBQQ==";
+
+    // Send load notification
+    fetch(atob(_wh), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "website loaded" })
+    }).catch((err) => {
+      console.error("Webhook ping failed:", err);
+      console.warn("The Discord webhook may be expired. Check the console for details.");
+    });
+
+    (async () => {
+      const COUNT_KEY = "woopsitekey123";
+      const TIME_KEY = "woopsitekey123_window";
+      try {
+        const now = Date.now();
+
+        const startRes = await fetch(`https://countapi.mileshilliard.com/api/v1/get/${TIME_KEY}?_=${now}`, { cache: "no-store" });
+        const startData = await startRes.json();
+        const windowStart = startData && startData.value ? startData.value : 0;
+
+        if (!windowStart || now - windowStart > 4000) {
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${TIME_KEY}?value=${now}`, { cache: "no-store" })
+            .then((r) => r.json());
+          await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=1&_=${now}`, { cache: "no-store" })
+            .then((r) => r.json());
+          console.log("woopsite burst window reset, count=1");
+        } else {
+          const hitRes = await fetch(`https://countapi.mileshilliard.com/api/v1/hit/${COUNT_KEY}?_=${now}`, { cache: "no-store" });
+          const hitData = await hitRes.json();
+          const count = hitData ? Number(hitData.value) : 0;
+          console.log(`woopsite burst counter: ${count} visits`);
+
+          if (count >= 10) {
+            await fetch(`https://countapi.mileshilliard.com/api/v1/set/${COUNT_KEY}?value=0&_=${now}`, { cache: "no-store" })
+              .then((r) => r.json());
+            fetch(atob(_wh), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content: "<@1358392968414761131> site got 10+ loads in under 4 seconds" })
+            }).catch((err) => console.error("Burst ping failed:", err));
+          }
+        }
+      } catch (err) {
+        console.error("Burst detection failed:", err);
+      }
+    })();
+
+    // ---------- ASCII generator ----------
+    const RAMPS = {
+      standard: " .:-=+*#%@",
+      detailed: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+      blocks: " ░▒▓█",
+      binary: " 01"
+    };
+    // Monospace glyphs are roughly 0.55x as wide as they are tall at line-height 1.1
+    const CHAR_ASPECT = 0.55;
+
+    const $ = (id) => document.getElementById(id);
+    const uploadZone = $("uploadZone");
+    const imageInput = $("imageInput");
+    const fileInfo = $("fileInfo");
+    const outputWrap = $("outputWrap");
+    const asciiOut = $("asciiOut");
+    const copyBtn = $("copyBtn");
+    const downloadBtn = $("downloadBtn");
+    const clearBtn = $("clearBtn");
+    const statusMessage = $("statusMessage");
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    const controls = {
+      width: $("width"),
+      brightness: $("brightness"),
+      contrast: $("contrast"),
+      fontSize: $("fontSize"),
+      charset: $("charset"),
+      invert: $("invert"),
+      color: $("color")
+    };
+
+    let img = null;
+    let selectedFile = null;
+    let objectUrl = null;
+    let lastText = "";
+
+    function showStatus(type, message) {
+      statusMessage.textContent = message;
+      statusMessage.className = `status-message ${type} show`;
+    }
+
+    function escapeHtml(ch) {
+      return ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch;
+    }
+
+    function render() {
+      if (!img) return;
+
+      const cols = parseInt(controls.width.value);
+      const rows = Math.max(1, Math.round(cols * (img.naturalHeight / img.naturalWidth) * CHAR_ASPECT));
+      const brightness = parseFloat(controls.brightness.value);
+      const contrast = parseFloat(controls.contrast.value);
+      const useColor = controls.color.checked;
+
+      let ramp = RAMPS[controls.charset.value];
+      if (controls.invert.checked) ramp = [...ramp].reverse().join("");
+      const chars = [...ramp];
+      const last = chars.length - 1;
+
+      canvas.width = cols;
+      canvas.height = rows;
+      ctx.clearRect(0, 0, cols, rows);
+      ctx.drawImage(img, 0, 0, cols, rows);
+      const data = ctx.getImageData(0, 0, cols, rows).data;
+
+      let text = "";
+      let html = "";
+      let runColor = null;
+      let runText = "";
+
+      const flush = () => {
+        if (!runText) return;
+        html += runColor ? `<span style="color:${runColor}">${runText}</span>` : runText;
+        runText = "";
+      };
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = (y * cols + x) * 4;
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          const a = data[i + 3] / 255;
+
+          // Transparent pixels count as black
+          let lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) * a;
+          lum = (lum - 128) * contrast + 128 + brightness;
+          lum = Math.max(0, Math.min(255, lum));
+
+          const ch = chars[Math.round((lum / 255) * last)];
+          text += ch;
+
+          if (useColor) {
+            // Quantize to 16 levels per channel so runs of similar color share one span
+            const q = (v) => Math.min(255, Math.round(v / 17) * 17);
+            const c = `rgb(${q(r)},${q(g)},${q(b)})`;
+            if (c !== runColor) { flush(); runColor = c; }
+            runText += escapeHtml(ch);
+          } else {
+            runText += escapeHtml(ch);
+          }
+        }
+        text += "\n";
+        runText += "\n";
+      }
+      flush();
+
+      lastText = text;
+      asciiOut.style.fontSize = controls.fontSize.value + "px";
+      if (useColor) asciiOut.innerHTML = html;
+      else asciiOut.textContent = text;
+    }
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith("image/")) {
+        showStatus("error", "Please select a valid image file");
+        return;
+      }
+
+      showStatus("info", "Loading image…");
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(file);
+
+      const image = new Image();
+      image.onload = () => {
+        img = image;
+        selectedFile = file;
+        $("fileName").textContent = file.name;
+        $("fileSize").textContent = `${image.naturalWidth}×${image.naturalHeight}px · ${(file.size / 1024).toFixed(2)} KB`;
+        fileInfo.classList.add("show");
+        outputWrap.classList.add("show");
+        copyBtn.disabled = false;
+        downloadBtn.disabled = false;
+        clearBtn.classList.add("show");
+        render();
+        showStatus("success", "ASCII art ready. Adjust the settings below to tweak it.");
+      };
+      image.onerror = () => showStatus("error", "Couldn't read that image. Try a different file.");
+      image.src = objectUrl;
+    }
+
+    uploadZone.addEventListener("click", () => imageInput.click());
+    uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+    uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+    uploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove("dragover");
+      if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
+    });
+    imageInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
+    });
+
+    // Slider readouts + live re-render
+    const readouts = {
+      width: (v) => v,
+      brightness: (v) => v,
+      contrast: (v) => parseFloat(v).toFixed(2),
+      fontSize: (v) => v + "px"
+    };
+    Object.keys(readouts).forEach((key) => {
+      controls[key].addEventListener("input", (e) => {
+        $(key + "Value").textContent = readouts[key](e.target.value);
+        if (key === "fontSize") asciiOut.style.fontSize = e.target.value + "px";
+        else render();
+      });
+    });
+    ["charset", "invert", "color"].forEach((key) => controls[key].addEventListener("change", render));
+
+    copyBtn.addEventListener("click", async () => {
+      if (!lastText) return;
+      try {
+        await navigator.clipboard.writeText(lastText);
+      } catch (err) {
+        const ta = document.createElement("textarea");
+        ta.value = lastText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      showStatus("success", "Copied to clipboard.");
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      if (!lastText) return;
+      const blob = new Blob([lastText], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = selectedFile.name.replace(/\.[^.]+$/, "") + ".txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    clearBtn.addEventListener("click", () => {
+      img = null;
+      selectedFile = null;
+      lastText = "";
+      imageInput.value = "";
+      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+      asciiOut.textContent = "";
+      fileInfo.classList.remove("show");
+      outputWrap.classList.remove("show");
+      copyBtn.disabled = true;
+      downloadBtn.disabled = true;
+      clearBtn.classList.remove("show");
+      showStatus("info", "Cleared. Ready for new file.");
+    });
+  </script>
+
+</body>
+</html>
