@@ -1065,21 +1065,41 @@
       mp4Button.disabled=true;make.disabled=true;
       let ffmpeg=null;
       let classWorkerBlobUrl=null;
+      let coreBlobUrl=null;
+      let wasmBlobUrl=null;
       const say=(textValue)=>msg("info",textValue);
+      const withTimeout=(promise,label,ms=45000)=>Promise.race([
+        promise,
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+" timed out. Check your connection and try again.")),ms))
+      ]);
       try{
-        say("Loading fast MP4 encoder...");
-        const { FFmpeg } = await import("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js");
+        say("Loading FFmpeg library...");
+        const { FFmpeg } = await withTimeout(
+          import("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js"),
+          "Loading FFmpeg library"
+        );
         ffmpeg=new FFmpeg();
         ffmpeg.on("log",({message})=>{if(message&&/error/i.test(message))console.warn("FFmpeg:",message);});
         ffmpeg.on("progress",({progress})=>{if(Number.isFinite(progress))say("Encoding MP4... "+Math.max(0,Math.min(100,Math.round(progress*100)))+"%");});
-        const workerResponse=await fetch("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/worker.js",{mode:"cors",credentials:"omit"});
-        if(!workerResponse.ok)throw new Error("Could not download FFmpeg worker script.");
+        say("Downloading FFmpeg worker...");
+        const workerResponse=await withTimeout(fetch("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/worker.js",{mode:"cors",credentials:"omit"}),"Downloading FFmpeg worker");
+        if(!workerResponse.ok)throw new Error("Could not download FFmpeg worker script (HTTP "+workerResponse.status+").");
         classWorkerBlobUrl=URL.createObjectURL(new Blob([await workerResponse.text()],{type:"text/javascript"}));
-        await ffmpeg.load({
+        say("Downloading FFmpeg encoder...");
+        const coreBase="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+        const [coreResponse,wasmResponse]=await withTimeout(Promise.all([
+          fetch(coreBase+"/ffmpeg-core.js",{mode:"cors",credentials:"omit"}),
+          fetch(coreBase+"/ffmpeg-core.wasm",{mode:"cors",credentials:"omit"})
+        ]),"Downloading FFmpeg encoder");
+        if(!coreResponse.ok||!wasmResponse.ok)throw new Error("Could not download FFmpeg core files.");
+        coreBlobUrl=URL.createObjectURL(new Blob([await coreResponse.text()],{type:"text/javascript"}));
+        wasmBlobUrl=URL.createObjectURL(new Blob([await wasmResponse.arrayBuffer()],{type:"application/wasm"}));
+        say("Starting FFmpeg (first load can take a moment)...");
+        await withTimeout(ffmpeg.load({
           classWorkerURL:classWorkerBlobUrl,
-          coreURL:"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js",
-          wasmURL:"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm"
-        });
+          coreURL:coreBlobUrl,
+          wasmURL:wasmBlobUrl
+        }),"Starting FFmpeg",90000);
         const ext=(file.name.split(".").pop()||"audio").replace(/[^a-z0-9]/gi,"").toLowerCase()||"audio";
         const inputName="source."+ext;
         await ffmpeg.writeFile(inputName,new Uint8Array(await file.arrayBuffer()));
@@ -1119,6 +1139,8 @@
       }finally{
         if(ffmpeg){try{ffmpeg.terminate();}catch(e){}}
         if(classWorkerBlobUrl)URL.revokeObjectURL(classWorkerBlobUrl);
+        if(coreBlobUrl)URL.revokeObjectURL(coreBlobUrl);
+        if(wasmBlobUrl)URL.revokeObjectURL(wasmBlobUrl);
         mp4Button.disabled=false;make.disabled=false;
       }
     }
