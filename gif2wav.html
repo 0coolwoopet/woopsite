@@ -1064,42 +1064,27 @@
       const mp4Button=mp4;
       mp4Button.disabled=true;make.disabled=true;
       let ffmpeg=null;
-      let classWorkerBlobUrl=null;
       let coreBlobUrl=null;
       let wasmBlobUrl=null;
       const say=(textValue)=>msg("info",textValue);
-      const withTimeout=(promise,label,ms=45000)=>Promise.race([
-        promise,
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+" timed out. Check your connection and try again.")),ms))
-      ]);
+      const withTimeout=(promise,label,ms=60000)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+" timed out.")),ms))]);
       try{
         say("Loading FFmpeg library...");
-        const { FFmpeg } = await withTimeout(
-          import("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js"),
-          "Loading FFmpeg library"
-        );
+        const { FFmpeg } = await withTimeout(import("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js"),"Loading FFmpeg library");
         ffmpeg=new FFmpeg();
         ffmpeg.on("log",({message})=>{if(message&&/error/i.test(message))console.warn("FFmpeg:",message);});
-        ffmpeg.on("progress",({progress})=>{if(Number.isFinite(progress))say("Encoding MP4... "+Math.max(0,Math.min(100,Math.round(progress*100)))+"%");});
-        say("Preparing FFmpeg worker for Chrome...");
-        const workerModuleURL="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/worker.js";
-        const workerBootstrap='import('+JSON.stringify(workerModuleURL)+').catch(function(e){self.postMessage({id:0,type:"ERROR",data:"FFmpeg worker module import failed: "+String(e)});});';
-        classWorkerBlobUrl=URL.createObjectURL(new Blob([workerBootstrap],{type:"text/javascript"}));
+        ffmpeg.on("progress",({progress})=>{if(Number.isFinite(progress))say("Encoding MP4... "+Math.round(progress*100)+"%");});
         say("Downloading FFmpeg encoder...");
-        const coreBase="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
-        const [coreResponse,wasmResponse]=await withTimeout(Promise.all([
-          fetch(coreBase+"/ffmpeg-core.js",{mode:"cors",credentials:"omit"}),
-          fetch(coreBase+"/ffmpeg-core.wasm",{mode:"cors",credentials:"omit"})
+        const base="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+        const [coreRes,wasmRes]=await withTimeout(Promise.all([
+          fetch(base+"/ffmpeg-core.js",{mode:"cors"}),
+          fetch(base+"/ffmpeg-core.wasm",{mode:"cors"})
         ]),"Downloading FFmpeg encoder");
-        if(!coreResponse.ok||!wasmResponse.ok)throw new Error("Could not download FFmpeg core files.");
-        coreBlobUrl=URL.createObjectURL(new Blob([await coreResponse.text()],{type:"text/javascript"}));
-        wasmBlobUrl=URL.createObjectURL(new Blob([await wasmResponse.arrayBuffer()],{type:"application/wasm"}));
-        say("Starting FFmpeg. On mobile, the first load may take a minute...");
-        await withTimeout(ffmpeg.load({
-          classWorkerURL:classWorkerBlobUrl,
-          coreURL:coreBlobUrl,
-          wasmURL:wasmBlobUrl
-        }),"Starting FFmpeg",90000);
+        if(!coreRes.ok||!wasmRes.ok)throw new Error("Could not download FFmpeg core files.");
+        coreBlobUrl=URL.createObjectURL(new Blob([await coreRes.text()],{type:"text/javascript"}));
+        wasmBlobUrl=URL.createObjectURL(new Blob([await wasmRes.arrayBuffer()],{type:"application/wasm"}));
+        say("Starting FFmpeg...");
+        await withTimeout(ffmpeg.load({coreURL:coreBlobUrl,wasmURL:wasmBlobUrl}),"Starting FFmpeg",90000);
         const ext=(file.name.split(".").pop()||"audio").replace(/[^a-z0-9]/gi,"").toLowerCase()||"audio";
         const inputName="source."+ext;
         await ffmpeg.writeFile(inputName,new Uint8Array(await file.arrayBuffer()));
@@ -1138,7 +1123,6 @@
         msg("error","MP4 export failed: "+(err&&err.message?err.message:"Unknown error")+". Check your connection and reload the page. Chrome may block worker imports when this file is opened from content://; opening it from your GitHub Pages site is recommended.");
       }finally{
         if(ffmpeg){try{ffmpeg.terminate();}catch(e){}}
-        if(classWorkerBlobUrl)URL.revokeObjectURL(classWorkerBlobUrl);
         if(coreBlobUrl)URL.revokeObjectURL(coreBlobUrl);
         if(wasmBlobUrl)URL.revokeObjectURL(wasmBlobUrl);
         mp4Button.disabled=false;make.disabled=false;
