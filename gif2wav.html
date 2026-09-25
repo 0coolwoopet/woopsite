@@ -1084,7 +1084,7 @@
         coreBlobUrl=URL.createObjectURL(new Blob([await coreRes.text()],{type:"text/javascript"}));
         wasmBlobUrl=URL.createObjectURL(new Blob([await wasmRes.arrayBuffer()],{type:"application/wasm"}));
         say("Starting FFmpeg...");
-        const localWorkerURL=new URL("/assets/ffmpeg/worker.js",window.location.origin).href;
+        const localWorkerURL=new URL("assets/ffmpeg/worker.js",document.baseURI).href;
         await withTimeout(ffmpeg.load({coreURL:coreBlobUrl,wasmURL:wasmBlobUrl,classWorkerURL:localWorkerURL}),"Starting FFmpeg",90000);
         const ext=(file.name.split(".").pop()||"audio").replace(/[^a-z0-9]/gi,"").toLowerCase()||"audio";
         const inputName="source."+ext;
